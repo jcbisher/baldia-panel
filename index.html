@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Baldia Leaderboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: #0d0a00;
+    font-family: 'Press Start 2P', monospace;
+    color: #f5c542;
+    padding: 10px;
+    min-height: 100vh;
+  }
+
+  h1 {
+    font-size: 7px;
+    text-align: center;
+    color: #f5c542;
+    text-shadow: 1px 1px #7a3000;
+    padding: 8px 0 4px;
+    letter-spacing: 1px;
+    border-bottom: 2px solid #3a2000;
+    margin-bottom: 4px;
+  }
+
+  .season-label {
+    font-size: 5px;
+    color: #a07820;
+    text-align: center;
+    margin-bottom: 10px;
+    letter-spacing: 1px;
+  }
+
+  .lb-row {
+    display: grid;
+    grid-template-columns: 22px 1fr 36px 52px;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 4px;
+    border-bottom: 1px solid #1e1400;
+  }
+
+  .lb-row.top1 { background: #2a1e00; border-left: 3px solid #ffd700; }
+  .lb-row.top2 { background: #1a1800; border-left: 3px solid #aaa; }
+  .lb-row.top3 { background: #1a1200; border-left: 3px solid #cd7f32; }
+
+  .rank { font-size: 6px; color: #a07820; text-align: center; }
+  .top1 .rank { color: #ffd700; }
+  .top2 .rank { color: #ccc; }
+  .top3 .rank { color: #cd7f32; }
+
+  .player-info { min-width: 0; }
+  .char-name {
+    font-size: 6px;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+  }
+  .class-label {
+    font-size: 4.5px;
+    color: #888;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .level-col  { font-size: 5.5px; color: #88aaff; text-align: right; }
+  .points-col { font-size: 5px;   color: #88ff88; text-align: right; }
+
+  .footer {
+    margin-top: 8px;
+    font-size: 4.5px;
+    color: #555;
+    text-align: center;
+    line-height: 1.8;
+  }
+
+  .status-msg {
+    text-align: center;
+    font-size: 6px;
+    color: #666;
+    padding: 20px 0;
+  }
+
+  .platforms {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 6px 0;
+    font-size: 8px;
+  }
+
+  .cmd-strip {
+    background: #1a1000;
+    border: 1px solid #3a2000;
+    padding: 5px 6px;
+    margin-top: 8px;
+    font-size: 4.5px;
+    color: #a07820;
+    line-height: 2;
+    text-align: center;
+  }
+
+  @keyframes shimmer {
+    0%   { background-position: -200px 0; }
+    100% { background-position:  200px 0; }
+  }
+  .skeleton {
+    height: 30px;
+    margin: 4px 0;
+    background: linear-gradient(90deg, #1a1000 25%, #2a1a00 50%, #1a1000 75%);
+    background-size: 400px 100%;
+    animation: shimmer 1.2s infinite;
+  }
+</style>
+</head>
+<body>
+
+<h1>LEGEND OF BALDIA</h1>
+<div class="season-label" id="season-label">Season 1 — Loading...</div>
+
+<div class="platforms">
+  <span title="Twitch">🟣</span>
+  <span title="YouTube">🔴</span>
+  <span title="Discord">🔵</span>
+</div>
+
+<div id="lb-container">
+  <div class="skeleton"></div>
+  <div class="skeleton"></div>
+  <div class="skeleton"></div>
+  <div class="skeleton"></div>
+  <div class="skeleton"></div>
+</div>
+
+<div class="cmd-strip">
+  !join · !bald · !gamble · !duel · !cheer<br/>
+  /start · /link · /daily on Discord
+</div>
+
+<div class="footer" id="footer">
+  Updated after each stream<br/>
+  Season wipe every 3 months
+</div>
+
+<script>
+// ── Fill in your Supabase values here ────────────────────────
+const SUPABASE_URL = 'https://sfwzqmdqwfnqyjqogwtv.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_UsnkeE_NSxdA8A0D8yd3jw_lwBwcjs6';
+
+const CLASS_NAMES = {
+  follicle_knight:   'Follicle Knight',
+  scalp_mage:        'Scalp Mage',
+  bald_rogue:        'Bald Rogue',
+  combover_cleric:   'Cleric',
+  chromedome_ranger: 'Ranger',
+};
+
+const MEDALS = ['🥇', '🥈', '🥉'];
+
+async function loadLeaderboard() {
+  try {
+    const sr = await fetch(`${SUPABASE_URL}/rest/v1/seasons?is_active=eq.true&select=*`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+    const seasons = await sr.json();
+    if (seasons?.[0]) {
+      document.getElementById('season-label').textContent = seasons[0].name;
+    }
+
+    const lr = await fetch(`${SUPABASE_URL}/rest/v1/season_leaderboard?select=*&limit=15`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+    const rows = await lr.json();
+
+    const container = document.getElementById('lb-container');
+
+    if (!rows?.length) {
+      container.innerHTML = '<div class="status-msg">No heroes yet.<br/>Be the first!</div>';
+      return;
+    }
+
+    container.innerHTML = rows.map((r, i) => {
+      const rankClass = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
+      const medal     = MEDALS[i] || `${i + 1}.`;
+      const className = CLASS_NAMES[r.class] || r.class;
+      return `
+        <div class="lb-row ${rankClass}">
+          <div class="rank">${medal}</div>
+          <div class="player-info">
+            <div class="char-name">${escHtml(r.character_name)}</div>
+            <div class="class-label">${className}</div>
+          </div>
+          <div class="level-col">Lv.${r.level}</div>
+          <div class="points-col">${r.loyalty_points.toLocaleString()}pts</div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('footer').innerHTML =
+      `Updated: ${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}<br/>Season wipe every 3 months`;
+
+  } catch(e) {
+    document.getElementById('lb-container').innerHTML =
+      '<div class="status-msg">Could not load leaderboard.</div>';
+    console.error(e);
+  }
+}
+
+function escHtml(str) {
+  return String(str).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+loadLeaderboard();
+setInterval(loadLeaderboard, 5 * 60 * 1000);
+</script>
+</body>
+</html>
